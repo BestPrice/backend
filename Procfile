@@ -1,1 +1,1 @@
-web: BestPrice
+web: backend
