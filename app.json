@@ -1,0 +1,11 @@
+{
+  "name": "Best Price",
+  "description": "Backend server",
+  "keywords": [
+    "go",
+  ],
+  "image": "heroku/go:1.7",
+  "mount_dir": "src/github.com/BestPrice/backend",
+  // "website": "http://github.com/BestPrice/web",
+  "repository": "http://github.com/BestPrice/backend"
+}
