@@ -3,10 +3,22 @@
 	"ignore": "test",
 	"package": [
 		{
-			"checksumSHA1": "urMd7A9QPAJYY0GZJL9qBhlUmD8=",
-			"path": "github.com/gorilla/mux",
-			"revision": "757bef944d0f21880861c2dd9c871ca543023cba",
-			"revisionTime": "2016-09-20T23:08:13Z"
+			"checksumSHA1": "Drsz3oT4NmM2tVQCRk+occxVvPA=",
+			"path": "github.com/julienschmidt/httprouter",
+			"revision": "d8ff598a019f2c7bad0980917a588193cf26666e",
+			"revisionTime": "2016-08-10T19:53:38Z"
+		},
+		{
+			"checksumSHA1": "88ochAZ1SsbAH6DgBQ5eTUChFE0=",
+			"path": "github.com/lib/pq",
+			"revision": "ae8357db35d721c58dcdc911318b55bef6b1b001",
+			"revisionTime": "2016-10-14T01:16:34Z"
+		},
+		{
+			"checksumSHA1": "xppHi82MLqVx1eyQmbhTesAEjx8=",
+			"path": "github.com/lib/pq/oid",
+			"revision": "ae8357db35d721c58dcdc911318b55bef6b1b001",
+			"revisionTime": "2016-10-14T01:16:34Z"
 		}
 	],
 	"rootPath": "github.com/BestPrice/backend"
