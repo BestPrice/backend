@@ -1,50 +1,31 @@
 package main
 
 import (
-	"net/http"
+	"log"
 	"os"
 
-	"github.com/gorilla/mux"
+	"github.com/BestPrice/backend/http"
+	"github.com/BestPrice/backend/sql"
 )
 
-func GetChainstores(w http.ResponseWriter, r *http.Request) {
-}
-
-func PostStore(w http.ResponseWriter, r *http.Request) {
-}
-
-func GetCategories(w http.ResponseWriter, r *http.Request) {
-}
-
-func PostShop(w http.ResponseWriter, r *http.Request) {
-}
-
-type Server struct {
-	Port string
-}
-
-func (s *Server) Start() error {
-	r := mux.NewRouter()
-
-	r.HandleFunc("/chainstores", GetChainstores).Methods(http.MethodGet)
-	r.HandleFunc("/store", PostStore).Methods(http.MethodPost)
-	r.HandleFunc("/categories", GetCategories).Methods(http.MethodGet)
-	r.HandleFunc("/shop", PostShop).Methods(http.MethodPost)
-
-	return http.ListenAndServe(s.Port, r)
-}
-
 func main() {
-	var (
-		port = os.Getenv("PORT")
-	)
 
-	if port == "" {
-		port = "8080"
+	// open database
+	c := &sql.Client{
+		Path: os.Getenv("DATABASE_URL"),
+	}
+	if err := c.Open(); err != nil {
+		log.Fatal(err)
 	}
 
-	server := Server{
-		Port: ":" + port,
+	// create server on PORT with handler
+	s := http.Server{
+		Port:    ":" + os.Getenv("PORT"),
+		Handler: http.NewHandler(c),
 	}
-	server.Start()
+
+	// Run backend server
+	if err := s.Run(); err != nil {
+		log.Fatal(err)
+	}
 }
