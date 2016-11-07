@@ -8,7 +8,7 @@ type Service struct {
 	session *Session
 }
 
-func (s *Service) Chainstores() ([]bp.Chainstore, error) {
+func (s Service) Chainstores() ([]bp.Chainstore, error) {
 	rows, err := s.session.db.Query("SELECT * FROM chain_store")
 	if err != nil {
 		return nil, err
@@ -27,7 +27,7 @@ func (s *Service) Chainstores() ([]bp.Chainstore, error) {
 	return vals, nil
 }
 
-func (s *Service) Categories() ([]bp.Category, error) {
+func (s Service) Categories() ([]bp.Category, error) {
 	rows, err := s.session.db.Query("SELECT * FROM category")
 	if err != nil {
 		return nil, err
@@ -37,7 +37,7 @@ func (s *Service) Categories() ([]bp.Category, error) {
 	vals := make([]bp.Category, 0, 32)
 	for rows.Next() {
 		var c bp.Category
-		if err := rows.Scan(&c.Id, &c.IdParent, c.Name); err != nil {
+		if err := rows.Scan(&c.Id, &c.Name, &c.IdParent); err != nil {
 			return nil, err
 		}
 		vals = append(vals, c)
@@ -55,7 +55,7 @@ func (s *Service) Categories() ([]bp.Category, error) {
 	return vals, nil
 }
 
-func (s *Service) Products(query string) ([]bp.Product, error) {
+func (s Service) Products(query string) ([]bp.Product, error) {
 	rows, err := s.session.db.Query("SELECT * FROM product LIMIT 100")
 	if err != nil {
 		return nil, err
@@ -74,7 +74,7 @@ func (s *Service) Products(query string) ([]bp.Product, error) {
 	return vals, nil
 }
 
-func (s *Service) Stores(chainstore, district, region string) ([]bp.Store, error) {
+func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error) {
 	rows, err := s.session.db.Query("SELECT * FROM store")
 	if err != nil {
 		return nil, err
@@ -93,7 +93,7 @@ func (s *Service) Stores(chainstore, district, region string) ([]bp.Store, error
 	return vals, nil
 }
 
-func (s *Service) Shop() (bp.Shop, error) {
+func (s Service) Shop() (bp.Shop, error) {
 	panic("TODO: implement Shop")
 }
 

@@ -5,31 +5,30 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/BestPrice/backend/sql"
+	"github.com/BestPrice/backend/bp"
 	"github.com/julienschmidt/httprouter"
 )
 
-type Handler struct {
+type BestpriceHandler struct {
 	*httprouter.Router
 
-	// Service *bp.Service
-	client *sql.Client
+	Service bp.Service
 }
 
-func NewHandler(c *sql.Client) *Handler {
-	h := &Handler{
-		Router: httprouter.New(),
-		client: c,
+func NewHandler(service bp.Service) *BestpriceHandler {
+	h := &BestpriceHandler{
+		Router:  httprouter.New(),
+		Service: service,
 	}
-	h.GET("/", h.handleIndex)
-	h.GET("/chainstores", h.handleGetChainstores)
-	h.GET("/products", h.handleGetProducts)
-	h.GET("/categories", h.handleGetCategories)
-	h.GET("/stores", h.handleGetStores)
+	h.GET("/chainstores", h.chainstores)
+	h.GET("/products", h.products)
+	h.GET("/categories", h.categories)
+	h.GET("/stores", h.stores)
+	// h.POST("/shop", h.shop)
 	return h
 }
 
-func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (h *BestpriceHandler) handleIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	w.Write([]byte(
 		`- GET /categories
 returns all categories
@@ -44,9 +43,8 @@ return all products matching string, maximum 100 products
 return all stores by given query`))
 }
 
-func (h *Handler) handleGetChainstores(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	s := h.client.Connect().Service()
-	v, err := s.Chainstores()
+func (h *BestpriceHandler) chainstores(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	v, err := h.Service.Chainstores()
 	if err != nil {
 		log.Println(err)
 	}
@@ -57,9 +55,8 @@ func (h *Handler) handleGetChainstores(w http.ResponseWriter, r *http.Request, _
 	}
 }
 
-func (h *Handler) handleGetCategories(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	s := h.client.Connect().Service()
-	v, err := s.Categories()
+func (h *BestpriceHandler) categories(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	v, err := h.Service.Categories()
 	if err != nil {
 		log.Println(err)
 	}
@@ -70,14 +67,13 @@ func (h *Handler) handleGetCategories(w http.ResponseWriter, r *http.Request, _ 
 	}
 }
 
-func (h *Handler) handleGetProducts(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+func (h *BestpriceHandler) products(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	query := r.URL.Query().Get("query")
 	if query == "" {
 		// TODO: handle empty query
 	}
 
-	s := h.client.Connect().Service()
-	v, err := s.Products(query)
+	v, err := h.Service.Products(query)
 	if err != nil {
 		log.Println(err)
 	}
@@ -88,9 +84,8 @@ func (h *Handler) handleGetProducts(w http.ResponseWriter, r *http.Request, _ ht
 	}
 }
 
-func (h *Handler) handleGetStores(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	s := h.client.Connect().Service()
-	v, err := s.Stores("", "", "")
+func (h *BestpriceHandler) stores(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	v, err := h.Service.Stores("", "", "")
 	if err != nil {
 		log.Println(err)
 	}
@@ -99,4 +94,8 @@ func (h *Handler) handleGetStores(w http.ResponseWriter, r *http.Request, _ http
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+func (h *BestpriceHandler) shop(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+
 }

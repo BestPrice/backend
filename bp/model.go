@@ -23,7 +23,7 @@ type Category struct {
 	IdParent int    `json:"-"`
 	Name     string `json:"name"`
 
-	Subcategories []Category `json:"subcategories"`
+	Subcategories []Category `json:"subcategories,omitempty"`
 }
 
 type Product struct {
