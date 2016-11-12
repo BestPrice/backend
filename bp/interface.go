@@ -16,9 +16,9 @@ type Authenticator interface {
 }
 
 type Service interface {
+	Categories() ([]Category, error)
 	Chainstores() ([]Chainstore, error)
 	Stores(chainstore, district, region string) ([]Store, error)
-	Categories() ([]Category, error)
 	Products(query string) ([]Product, error)
 	Shop() (Shop, error)
 }

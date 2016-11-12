@@ -1,11 +1,37 @@
 package sql
 
-import "github.com/BestPrice/backend/bp"
+import (
+	"strings"
+
+	"github.com/BestPrice/backend/bp"
+)
 
 var _ bp.Service = &Service{}
 
 type Service struct {
 	session *Session
+}
+
+func (s Service) Categories() ([]bp.Category, error) {
+	rows, err := s.session.db.Query("SELECT * FROM product where price_description=''")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	vals := make([]bp.Category, 0, 32)
+	for rows.Next() {
+		var p bp.Product
+		if err := rows.Scan(&p.ID, &p.Name, &p.IDBrand, &p.Weight, &p.Volume, &p.IDParentProduct, &p.PriceDescription, &p.DecimalPossibility); err != nil {
+			return nil, err
+		}
+		vals = append(vals, bp.Category{
+			ID:   p.ID,
+			Name: p.Name,
+		})
+	}
+
+	return vals, nil
 }
 
 func (s Service) Chainstores() ([]bp.Chainstore, error) {
@@ -18,7 +44,7 @@ func (s Service) Chainstores() ([]bp.Chainstore, error) {
 	vals := make([]bp.Chainstore, 0, 32)
 	for rows.Next() {
 		var c bp.Chainstore
-		if err := rows.Scan(&c.Id, &c.Name); err != nil {
+		if err := rows.Scan(&c.ID, &c.Name); err != nil {
 			return nil, err
 		}
 		vals = append(vals, c)
@@ -27,36 +53,14 @@ func (s Service) Chainstores() ([]bp.Chainstore, error) {
 	return vals, nil
 }
 
-func (s Service) Categories() ([]bp.Category, error) {
-	rows, err := s.session.db.Query("SELECT * FROM category")
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	vals := make([]bp.Category, 0, 32)
-	for rows.Next() {
-		var c bp.Category
-		if err := rows.Scan(&c.Id, &c.Name, &c.IdParent); err != nil {
-			return nil, err
-		}
-		vals = append(vals, c)
+func (s Service) Products(name string) ([]bp.Product, error) {
+	if name == "" {
+		name = ".*"
+	} else {
+		name = strings.ToLower(name)
 	}
 
-	// TODO: make category "tree"
-	//
-	// sort.Sort(&categoriesById{vals})
-	// var categories []bp.Category
-
-	// for len(vals) > 0 {
-
-	// }
-
-	return vals, nil
-}
-
-func (s Service) Products(query string) ([]bp.Product, error) {
-	rows, err := s.session.db.Query("SELECT * FROM product LIMIT 100")
+	rows, err := s.session.db.Query("SELECT * FROM product where lower(product_name) similar to '%" + name + "%' and not price_description=''")
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +69,7 @@ func (s Service) Products(query string) ([]bp.Product, error) {
 	vals := make([]bp.Product, 0, 32)
 	for rows.Next() {
 		var p bp.Product
-		if err := rows.Scan(&p.Id); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.IDBrand, &p.Weight, &p.Volume, &p.IDParentProduct, &p.PriceDescription, &p.DecimalPossibility); err != nil {
 			return nil, err
 		}
 		vals = append(vals, p)
@@ -84,7 +88,7 @@ func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error)
 	vals := make([]bp.Store, 0, 32)
 	for rows.Next() {
 		var s bp.Store
-		if err := rows.Scan(&s.Id); err != nil {
+		if err := rows.Scan(&s.IDChainstore); err != nil {
 			return nil, err
 		}
 		vals = append(vals, s)
@@ -96,11 +100,3 @@ func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error)
 func (s Service) Shop() (bp.Shop, error) {
 	panic("TODO: implement Shop")
 }
-
-type categoriesById struct {
-	c []bp.Category
-}
-
-func (c *categoriesById) Len() int           { return len(c.c) }
-func (c *categoriesById) Less(i, j int) bool { return c.c[i].Id < c.c[j].Id }
-func (c *categoriesById) Swap(i, j int)      { c.c[i], c.c[j] = c.c[j], c.c[i] }

@@ -20,39 +20,12 @@ func NewHandler(service bp.Service) *BestpriceHandler {
 		Router:  httprouter.New(),
 		Service: service,
 	}
+	h.GET("/categories", h.categories)
 	h.GET("/chainstores", h.chainstores)
 	h.GET("/products", h.products)
-	h.GET("/categories", h.categories)
 	h.GET("/stores", h.stores)
-	// h.POST("/shop", h.shop)
+	h.POST("/shop", h.shop)
 	return h
-}
-
-func (h *BestpriceHandler) handleIndex(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	w.Write([]byte(
-		`- GET /categories
-returns all categories
-
-- GET /chainstores
-return all chainstores
-
-- GET /products?query=string
-return all products matching string, maximum 100 products
-
-- GET /stores?chainstore=string&district=string&region=string
-return all stores by given query`))
-}
-
-func (h *BestpriceHandler) chainstores(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	v, err := h.Service.Chainstores()
-	if err != nil {
-		log.Println(err)
-	}
-
-	err = json.NewEncoder(w).Encode(v)
-	if err != nil {
-		log.Println(err)
-	}
 }
 
 func (h *BestpriceHandler) categories(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -67,8 +40,21 @@ func (h *BestpriceHandler) categories(w http.ResponseWriter, r *http.Request, _ 
 	}
 }
 
+func (h *BestpriceHandler) chainstores(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
+	v, err := h.Service.Chainstores()
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = json.NewEncoder(w).Encode(v)
+	if err != nil {
+		log.Println(err)
+	}
+}
+
 func (h *BestpriceHandler) products(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	query := r.URL.Query().Get("query")
+	query := r.URL.Query().Get("search")
+	log.Println(r.URL)
 	if query == "" {
 		// TODO: handle empty query
 	}
