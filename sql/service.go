@@ -12,6 +12,27 @@ type Service struct {
 	session *Session
 }
 
+func makeCategoryTree(parent *bp.ID, cat map[*bp.Category]bool) []bp.Category {
+	nodes := []bp.Category{}
+
+	for c := range cat {
+		if parent == nil {
+			if !c.IDParent.Null() {
+				continue
+			}
+		} else {
+			if c.IDParent.Null() || c.IDParent.String() != parent.String() {
+				continue
+			}
+		}
+		delete(cat, c)
+		c.Subcategories = makeCategoryTree(&c.ID, cat)
+		nodes = append(nodes, *c)
+	}
+
+	return nodes
+}
+
 func (s Service) Categories() ([]bp.Category, error) {
 
 	query := `
@@ -26,7 +47,7 @@ func (s Service) Categories() ([]bp.Category, error) {
 		WHERE p.id_parent_product = n.id_product
 		AND p.price_description = ''
 	)
-	SELECT n.id_product, n.product_name FROM nodes n`
+	SELECT n.id_product, n.product_name, n.id_parent_product FROM nodes n`
 
 	rows, err := s.session.db.Query(query)
 	if err != nil {
@@ -34,16 +55,18 @@ func (s Service) Categories() ([]bp.Category, error) {
 	}
 	defer rows.Close()
 
-	vals := make([]bp.Category, 0, 32)
+	// vals := make([]bp.Category, 0, 32)
+	vals := make(map[*bp.Category]bool)
 	for rows.Next() {
 		var p bp.Category
-		if err := rows.Scan(&p.ID, &p.Name); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.IDParent); err != nil {
 			return nil, err
 		}
-		vals = append(vals, p)
+		// vals = append(vals, p)
+		vals[&p] = true
 	}
 
-	return vals, nil
+	return makeCategoryTree(nil, vals), nil
 }
 
 func (s Service) Chainstores() ([]bp.Chainstore, error) {
