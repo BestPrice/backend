@@ -46,6 +46,10 @@ func (x *ID) Scan(v interface{}) error {
 	}
 }
 
+func (x *ID) Null() bool {
+	return x.UUID == nil
+}
+
 type JsonNullInt64 struct {
 	sql.NullInt64
 }

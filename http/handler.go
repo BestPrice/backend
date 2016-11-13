@@ -50,7 +50,9 @@ func (h *BestpriceHandler) categories(w http.ResponseWriter, r *http.Request, _ 
 		log.Println(err)
 	}
 
-	err = json.NewEncoder(w).Encode(v)
+	e := json.NewEncoder(w)
+	e.SetIndent("", "\t")
+	err = e.Encode(v)
 	if err != nil {
 		log.Println(err)
 	}
@@ -62,7 +64,9 @@ func (h *BestpriceHandler) chainstores(w http.ResponseWriter, r *http.Request, _
 		log.Println(err)
 	}
 
-	err = json.NewEncoder(w).Encode(v)
+	e := json.NewEncoder(w)
+	e.SetIndent("", "\t")
+	err = e.Encode(v)
 	if err != nil {
 		log.Println(err)
 	}
@@ -82,7 +86,9 @@ func (h *BestpriceHandler) products(w http.ResponseWriter, r *http.Request, _ ht
 		log.Println(err)
 	}
 
-	err = json.NewEncoder(w).Encode(v)
+	e := json.NewEncoder(w)
+	e.SetIndent("", "\t")
+	err = e.Encode(v)
 	if err != nil {
 		log.Println(err)
 	}
