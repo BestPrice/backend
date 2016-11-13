@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/BestPrice/backend/bp"
 	"github.com/julienschmidt/httprouter"
@@ -53,10 +54,12 @@ func (h *BestpriceHandler) chainstores(w http.ResponseWriter, r *http.Request, _
 }
 
 func (h *BestpriceHandler) products(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	query := r.URL.Query().Get("search")
-	log.Println(r.URL)
-	if query == "" {
-		// TODO: handle empty query
+	query, err := url.QueryUnescape(r.URL.Query().Get("search"))
+	log.Println(r.URL, query, err)
+
+	if err != nil {
+		log.Println(err)
+		return
 	}
 
 	v, err := h.Service.Products(query)
