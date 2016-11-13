@@ -73,7 +73,7 @@ func (s Service) Products(searchQuery string) ([]bp.Product, error) {
 	)
 	SELECT * FROM nodes n
 	WHERE lower(n.product_name) SIMILAR TO '%(` + searchQuery + `)%'
-	AND NOT n.price_description='';`
+	AND NOT n.price_description=''`
 
 	rows, err := s.session.db.Query(query)
 	if err != nil {
