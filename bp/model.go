@@ -3,9 +3,9 @@ package bp
 type User struct{}
 
 type Category struct {
-	ID            ID         `json:id_category`
-	Name          string     `json:name`
-	Subcategories []Category `json:subcategories`
+	ID   ID     `json:id_category`
+	Name string `json:name`
+	// Subcategories []Category `json:subcategories`
 }
 
 type Chainstore struct {

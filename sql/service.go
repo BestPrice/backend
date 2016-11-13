@@ -13,7 +13,22 @@ type Service struct {
 }
 
 func (s Service) Categories() ([]bp.Category, error) {
-	rows, err := s.session.db.Query("SELECT * FROM product where price_description=''")
+
+	query := `
+	WITH RECURSIVE nodes (id_product, product_name, id_parent_product)
+	AS (
+		SELECT p.id_product, p.product_name, p.id_parent_product
+		FROM product p
+		WHERE p.id_parent_product is NULL
+		UNION ALL
+		SELECT p.id_product, p.product_name, p.id_parent_product
+		FROM product p, nodes n
+		WHERE p.id_parent_product = n.id_product
+		AND p.price_description = ''
+	)
+	SELECT n.id_product, n.product_name FROM nodes n`
+
+	rows, err := s.session.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -21,14 +36,11 @@ func (s Service) Categories() ([]bp.Category, error) {
 
 	vals := make([]bp.Category, 0, 32)
 	for rows.Next() {
-		var p bp.Product
-		if err := rows.Scan(&p.ID, &p.Name, &p.IDBrand, &p.Weight, &p.Volume, &p.IDParentProduct, &p.PriceDescription, &p.DecimalPossibility); err != nil {
+		var p bp.Category
+		if err := rows.Scan(&p.ID, &p.Name); err != nil {
 			return nil, err
 		}
-		vals = append(vals, bp.Category{
-			ID:   p.ID,
-			Name: p.Name,
-		})
+		vals = append(vals, p)
 	}
 
 	return vals, nil
