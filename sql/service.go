@@ -1,7 +1,13 @@
 package sql
 
 import (
+	"log"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/BestPrice/backend/bp"
 )
@@ -55,14 +61,12 @@ func (s Service) Categories() ([]bp.Category, error) {
 	}
 	defer rows.Close()
 
-	// vals := make([]bp.Category, 0, 32)
 	vals := make(map[*bp.Category]bool)
 	for rows.Next() {
 		var p bp.Category
 		if err := rows.Scan(&p.ID, &p.Name, &p.IDParent); err != nil {
 			return nil, err
 		}
-		// vals = append(vals, p)
 		vals[&p] = true
 	}
 
@@ -88,26 +92,65 @@ func (s Service) Chainstores() ([]bp.Chainstore, error) {
 	return vals, nil
 }
 
-func (s Service) Products(searchQuery string) ([]bp.Product, error) {
+func normalizePhrase(p string) (string, error) {
+	var (
+		add = func(r rune) rune {
+			if r == ' ' {
+				return '|'
+			}
+			return r
+		}
+	)
 
-	category := `2c7ea9a8-c9e1-4eee-ac31-d5e181bd8d06`
-	searchQuery = strings.Replace(searchQuery, " ", "|", -1)
-	searchQuery = strings.ToLower(searchQuery)
+	p = strings.Replace(p, "|", "", -1)
+	p = strings.TrimSpace(p)
+
+	t := transform.Chain(
+		runes.Map(add),
+		runes.Map(unicode.ToLower),
+		norm.NFD,
+		runes.Remove(runes.In(unicode.Mn)),
+		norm.NFC)
+	no, _, err := transform.String(t, p)
+	return no, err
+}
+
+func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) {
+
+	c := "IS NULL"
+
+	if category != nil {
+		c = "= '{" + category.String() + "}'"
+	}
+
+	p, err := normalizePhrase(phrase)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Println(phrase, " -> ", p)
 
 	query := `
-	WITH RECURSIVE nodes (id_product, product_name, id_brand, weight, volume, id_parent_product, price_description, decimal_possibility)
-	AS (
-		SELECT p.id_product, p.product_name, p.id_brand, p.weight, p.volume, p.id_parent_product, p.price_description, p.decimal_possibility
+	WITH RECURSIVE nodes AS (
+		SELECT p.*, ''::text || p.product_name as chain
 		FROM product p
-		WHERE p.id_parent_product = '{` + category + `}'
+		WHERE p.id_parent_product ` + c + `
 		UNION ALL
-
-		SELECT p.id_product, p.product_name, p.id_brand, p.weight, p.volume, p.id_parent_product, p.price_description, p.decimal_possibility
+		SELECT p.*, n.chain || ' ' || p.product_name
 		FROM product p, nodes n
 		WHERE p.id_parent_product = n.id_product
 	)
-	SELECT * FROM nodes n
-	WHERE lower(n.product_name) SIMILAR TO '%(` + searchQuery + `)%'
+	SELECT
+	n.id_product,
+	n.product_name,
+	n.id_brand,
+	n.weight,
+	n.volume,
+	n.id_parent_product,
+	n.price_description,
+	n.decimal_possibility
+	FROM nodes n
+	WHERE unaccent(lower(n.chain)) SIMILAR TO '%(` + p + `)%'
 	AND NOT n.price_description=''`
 
 	rows, err := s.session.db.Query(query)

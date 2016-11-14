@@ -25,15 +25,6 @@ type Store struct {
 	// Coordinates  string `json:coordinates`
 }
 
-//  id_product          | uuid
-//  product_name        | character varying(100)
-//  id_brand            | uuid
-//  weight              | integer
-//  volume              | integer
-//  id_parent_product   | uuid
-//  price_description   | character varying(80)
-//  decimal_possibility | boolean
-
 type Product struct {
 	ID                 ID             `json:"id_product"`
 	Name               string         `json:"name"`

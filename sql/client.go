@@ -24,7 +24,8 @@ func (c *Client) Open() error {
 		return err
 	}
 	c.db = db
-	return nil
+	_, err = db.Query("CREATE EXTENSION IF NOT EXISTS unaccent")
+	return err
 }
 
 func (c *Client) Connect() *Session {

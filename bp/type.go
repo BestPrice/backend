@@ -13,6 +13,14 @@ type ID struct {
 	*uuid.UUID
 }
 
+func NewID(hex string) (*ID, error) {
+	uuid, err := uuid.ParseHex(hex)
+	if err != nil {
+		return nil, err
+	}
+	return &ID{uuid}, nil
+}
+
 func (x *ID) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(b, "\"")
 	uuid, err := uuid.Parse(b)
