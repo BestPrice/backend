@@ -131,27 +131,31 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 	log.Println(phrase, " -> ", p)
 
 	query := `
-	WITH RECURSIVE nodes AS (
-		SELECT p.*, ''::text || p.product_name as chain
+		WITH RECURSIVE nodes AS (
+		-- GET all products with given category
+		SELECT p.id_product uuid, p.price_description pd, ''::text || p.product_name AS chain
 		FROM product p
 		WHERE p.id_parent_product ` + c + `
 		UNION ALL
-		SELECT p.*, n.chain || ' ' || p.product_name
+		SELECT p.id_product, p.price_description, n.chain || ' ' || p.product_name
 		FROM product p, nodes n
-		WHERE p.id_parent_product = n.id_product
+		WHERE p.id_parent_product = n.uuid
+	), nodes2 AS (
+		-- REMOVE category products and split chain
+		SELECT n.uuid, regexp_split_to_table(n.chain, E'\\s+') words
+		FROM nodes n
+		WHERE NOT n.pd = ''
+	), nodes3 AS (
+		-- COUNT matches
+		select n.uuid uuid, count(n.uuid) rank
+		from nodes2 n
+		WHERE unaccent(lower(n.words)) SIMILAR TO '%(` + p + `)%'
+		group by n.uuid
 	)
-	SELECT
-	n.id_product,
-	n.product_name,
-	n.id_brand,
-	n.weight,
-	n.volume,
-	n.id_parent_product,
-	n.price_description,
-	n.decimal_possibility
-	FROM nodes n
-	WHERE unaccent(lower(n.chain)) SIMILAR TO '%(` + p + `)%'
-	AND NOT n.price_description=''`
+	SELECT p.*
+	from product p, nodes3 n
+	where n.uuid = p.id_product
+	order by n.rank desc`
 
 	rows, err := s.session.db.Query(query)
 	if err != nil {
