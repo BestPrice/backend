@@ -28,18 +28,19 @@ type Store struct {
 type Product struct {
 	ID                 ID             `json:"id_product"`
 	Name               string         `json:"name"`
-	IDBrand            ID             `json:"id_brand"`
 	Weight             JsonNullInt64  `json:"weigth"`
 	Volume             JsonNullInt64  `json:"volume"`
-	IDParentProduct    ID             `json:"-"`
 	PriceDescription   JsonNullString `json:"price_description"`
 	DecimalPossibility JsonNullBool   `json:"decimal_possibility"`
+	Brand              Brand          `json:"brand"`
+
+	Rank int `json:"-"`
 }
 
 type Brand struct {
-	ID           ID     `json:"id_brand"`
-	IDChainstore ID     `json:"id_chain_store"`
-	Name         string `json:"name"`
+	ID   ID     `json:"id_brand"`
+	Name string `json:"name"`
+	// IDChainstore ID     `json:"id_chain_store"`
 }
 
 type Shop struct{}

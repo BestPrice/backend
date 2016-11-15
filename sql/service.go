@@ -1,7 +1,6 @@
 package sql
 
 import (
-	"log"
 	"strings"
 	"unicode"
 
@@ -128,34 +127,50 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 		return nil, err
 	}
 
-	log.Println(phrase, " -> ", p)
-
 	query := `
 		WITH RECURSIVE nodes AS (
-		-- GET all products with given category
-		SELECT p.id_product uuid, p.price_description pd, ''::text || p.product_name AS chain
-		FROM product p
-		WHERE p.id_parent_product ` + c + `
-		UNION ALL
-		SELECT p.id_product, p.price_description, n.chain || ' ' || p.product_name
-		FROM product p, nodes n
-		WHERE p.id_parent_product = n.uuid
-	), nodes2 AS (
-		-- REMOVE category products and split chain
-		SELECT n.uuid, regexp_split_to_table(n.chain, E'\\s+') words
-		FROM nodes n
-		WHERE NOT n.pd = ''
-	), nodes3 AS (
-		-- COUNT matches
-		select n.uuid uuid, count(n.uuid) rank
-		from nodes2 n
-		WHERE unaccent(lower(n.words)) SIMILAR TO '%(` + p + `)%'
-		group by n.uuid
-	)
-	SELECT p.*
-	from product p, nodes3 n
-	where n.uuid = p.id_product
-	order by n.rank desc`
+			-- GET all products with given category
+			SELECT p.id_product uuid, p.id_brand, p.price_description pd, ''::text || p.product_name AS chain
+			FROM product p
+			WHERE p.id_parent_product ` + c + `
+			UNION ALL
+			SELECT p.id_product, p.id_brand, p.price_description, n.chain || ' ' || p.product_name
+			FROM product p, nodes n
+			WHERE p.id_parent_product = n.uuid
+		), join_brands AS (
+			SELECT n.uuid, n.pd, n.chain || ' ' || b.brand_name AS chain
+			FROM nodes n
+			JOIN brand b ON b.id_brand = n.id_brand
+		), nodes2 AS (
+			-- REMOVE category products and split chain
+			SELECT n.uuid, regexp_split_to_table(n.chain, E'\\s+') words
+			FROM join_brands n
+			WHERE NOT n.pd = ''
+		), nodes3 AS (
+			-- COUNT matches
+			SELECT n.uuid uuid, count(n.uuid) rank
+			FROM nodes2 n
+			WHERE unaccent(lower(n.words)) SIMILAR TO '%(` + p + `)%'
+			GROUP BY n.uuid
+		), nodes4 AS (
+			SELECT p.*, n.rank
+			FROM product p, nodes3 n
+			WHERE p.id_product = n.uuid
+		)
+		SELECT
+		n.id_product,
+		n.product_name,
+		n.weight,
+		n.volume,
+		n.price_description,
+		n.decimal_possibility,
+		b.id_brand,
+		b.brand_name,
+		n.rank
+		FROM nodes4 n
+		JOIN brand b ON b.id_brand = n.id_brand
+		ORDER BY n.rank DESC
+	`
 
 	rows, err := s.session.db.Query(query)
 	if err != nil {
@@ -166,7 +181,8 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 	vals := make([]bp.Product, 0, 32)
 	for rows.Next() {
 		var p bp.Product
-		if err := rows.Scan(&p.ID, &p.Name, &p.IDBrand, &p.Weight, &p.Volume, &p.IDParentProduct, &p.PriceDescription, &p.DecimalPossibility); err != nil {
+		if err := rows.Scan(&p.ID, &p.Name, &p.Weight, &p.Volume, &p.PriceDescription,
+			&p.DecimalPossibility, &p.Brand.ID, &p.Brand.Name, &p.Rank); err != nil {
 			return nil, err
 		}
 		vals = append(vals, p)
