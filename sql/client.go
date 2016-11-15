@@ -3,7 +3,6 @@ package sql
 import (
 	"database/sql"
 
-	"github.com/BestPrice/backend/bp"
 	_ "github.com/lib/pq"
 )
 
@@ -13,9 +12,6 @@ type Client struct {
 
 	// Path to postgres database
 	Path string
-
-	// Autenticator to use
-	Authenticator bp.Authenticator
 }
 
 func (c *Client) Open() error {
@@ -28,8 +24,6 @@ func (c *Client) Open() error {
 	return err
 }
 
-func (c *Client) Connect() *Session {
-	s := newSession(c.db)
-	s.authenticator = c.Authenticator
-	return s
+func (c *Client) Service() *Service {
+	return &Service{db: c.db}
 }

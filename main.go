@@ -21,7 +21,7 @@ func main() {
 	// create server on PORT with handler
 	s := http.Server{
 		Port:    ":" + os.Getenv("PORT"),
-		Handler: http.NewHandler(c.Connect().Service()),
+		Handler: http.NewHandler(c.Service()),
 	}
 
 	// Run backend server

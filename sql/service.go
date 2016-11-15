@@ -1,6 +1,7 @@
 package sql
 
 import (
+	"database/sql"
 	"strings"
 	"unicode"
 
@@ -14,7 +15,7 @@ import (
 var _ bp.Service = &Service{}
 
 type Service struct {
-	session *Session
+	db *sql.DB
 }
 
 func makeCategoryTree(parent *bp.ID, cat map[*bp.Category]bool) []bp.Category {
@@ -54,7 +55,7 @@ func (s Service) Categories() ([]bp.Category, error) {
 	)
 	SELECT n.id_product, n.product_name, n.id_parent_product FROM nodes n`
 
-	rows, err := s.session.db.Query(query)
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +74,7 @@ func (s Service) Categories() ([]bp.Category, error) {
 }
 
 func (s Service) Chainstores() ([]bp.Chainstore, error) {
-	rows, err := s.session.db.Query("SELECT * FROM chain_store")
+	rows, err := s.db.Query("SELECT * FROM chain_store")
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +173,7 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 		ORDER BY n.rank DESC
 	`
 
-	rows, err := s.session.db.Query(query)
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +193,7 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 }
 
 func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error) {
-	rows, err := s.session.db.Query("SELECT * FROM store")
+	rows, err := s.db.Query("SELECT s.id_store, s.store_name FROM store s")
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +202,7 @@ func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error)
 	vals := make([]bp.Store, 0, 32)
 	for rows.Next() {
 		var s bp.Store
-		if err := rows.Scan(&s.IDChainstore); err != nil {
+		if err := rows.Scan(&s.IDChainstore, &s.Name); err != nil {
 			return nil, err
 		}
 		vals = append(vals, s)
