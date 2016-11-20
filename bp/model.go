@@ -16,13 +16,14 @@ type Chainstore struct {
 }
 
 type Store struct {
-	IDChainstore ID     `json:"id_chain_store"`
-	Name         string `json:"name"`
-	City         string `json:"city"`
-	Street       string `json:"street_and_nr"`
-	District     string `json:"district"`
-	Region       string `json:"region"`
-	// Coordinates  string `json:coordinates`
+	ID          ID             `json:"id_store"`
+	CSName      JsonNullString `json:"chain_store_name"`
+	Name        JsonNullString `json:"store_name"`
+	City        JsonNullString `json:"city"`
+	Street      JsonNullString `json:"street_and_nr"`
+	District    JsonNullString `json:"district"`
+	Region      JsonNullString `json:"region"`
+	Coordinates GeoPoint       `json:"coordinates"`
 }
 
 type Product struct {
