@@ -193,7 +193,13 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 }
 
 func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error) {
-	rows, err := s.db.Query("SELECT s.id_store, s.store_name FROM store s")
+	query := `
+	SELECT s.id_store, cs.chain_store_name, s.store_name, s.city,
+	s.street_and_nr, s.district, s.region, s.coordinates
+	FROM store s
+	JOIN chain_store cs ON s.id_chain_store = cs.id_chain_store
+	`
+	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +208,7 @@ func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error)
 	vals := make([]bp.Store, 0, 32)
 	for rows.Next() {
 		var s bp.Store
-		if err := rows.Scan(&s.IDChainstore, &s.Name); err != nil {
+		if err := rows.Scan(&s.ID, &s.CSName, &s.Name, &s.City, &s.Street, &s.District, &s.Region, &s.Coordinates); err != nil {
 			return nil, err
 		}
 		vals = append(vals, s)
