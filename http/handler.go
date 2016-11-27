@@ -65,8 +65,8 @@ func NewHandler(service bp.Service) http.Handler {
 	h.Handle("/chainstores", errorHandler(h.chainstores)).Methods(http.MethodGet)
 	h.Handle("/products", errorHandler(h.products)).Methods(http.MethodGet)
 	h.Handle("/stores", errorHandler(h.stores)).Methods(http.MethodGet)
-	// h.HandleFunc("/shop", h.shop).Methods(http.MethodPost)
-	h.Handle("/help", errorHandler(h.api)).Methods(http.MethodGet)
+	h.Handle("/shop", errorHandler(h.shop)).Methods(http.MethodPost)
+	h.Handle("/api", errorHandler(h.api)).Methods(http.MethodGet)
 
 	return &accessControlHandler{h}
 }
@@ -119,7 +119,22 @@ func (h Handler) stores(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h Handler) shop(w http.ResponseWriter, r *http.Request) error {
-	return nil
+	var req bp.ShopRequest
+	defer r.Body.Close()
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		return err
+	}
+
+	if err := req.Valid(); err != nil {
+		return encodeJSON(w, bp.Shop{Error: err.Error()})
+	}
+
+	shop, err := h.Service.Shop(&req)
+	if err != nil {
+		return encodeJSON(w, bp.Shop{Error: err.Error()})
+	}
+
+	return encodeJSON(w, shop)
 }
 
 func (h Handler) api(w http.ResponseWriter, r *http.Request) error {
@@ -146,8 +161,18 @@ func (h Handler) api(w http.ResponseWriter, r *http.Request) error {
 	buf.WriteString("\n\nGET /stores\n")
 	enc.Encode([]bp.Store{bp.Store{}, bp.Store{}})
 
-	buf.WriteString("\n\nTODO: POST /shop\n")
-	// enc.Encode([]bp.Store{bp.Store{}, bp.Store{}})
+	buf.WriteString("\n\nPOST /shop\n")
+	enc.Encode(bp.ShopRequest{
+		Products: []bp.ShopRequestProduct{
+			{ID: bp.RandID(), Count: 1},
+			{ID: bp.RandID(), Count: 1},
+		},
+
+		UserPreference: bp.UserPreference{
+			IDs: []bp.ID{bp.RandID(), bp.RandID()},
+			Max: 3,
+		},
+	})
 
 	_, err := buf.WriteTo(w)
 	return err

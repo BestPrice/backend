@@ -10,5 +10,5 @@ type Service interface {
 	Chainstores() ([]Chainstore, error)
 	Stores(chainstore, district, region string) ([]Store, error)
 	Products(category *ID, phrase string) ([]Product, error)
-	Shop() (Shop, error)
+	Shop(r *ShopRequest) (Shop, error)
 }

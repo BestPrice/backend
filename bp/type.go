@@ -25,9 +25,16 @@ func NewID(hex string) (*ID, error) {
 	return &ID{uuid}, nil
 }
 
+func RandID() ID {
+	uid, _ := uuid.NewV4()
+	return ID{
+		UUID: uid,
+	}
+}
+
 func (x *ID) UnmarshalJSON(b []byte) error {
 	b = bytes.Trim(b, "\"")
-	uuid, err := uuid.Parse(b)
+	uuid, err := uuid.ParseHex(string(b))
 	if err != nil {
 		return err
 	}
@@ -39,7 +46,7 @@ func (x *ID) MarshalJSON() ([]byte, error) {
 	if x.UUID == nil {
 		return json.Marshal(nil)
 	}
-	return json.Marshal(x.String())
+	return json.Marshal(x.UUID.String())
 }
 
 func (x *ID) Scan(v interface{}) error {

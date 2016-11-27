@@ -33,6 +33,12 @@
 			"revisionTime": "2013-12-21T20:05:32Z"
 		},
 		{
+			"checksumSHA1": "eNmO02xo0WSfPAJAQtIPsmg6hkk=",
+			"path": "github.com/shopspring/decimal",
+			"revision": "d6f52241f332c63811249bd79a522406bea1a7c9",
+			"revisionTime": "2016-09-18T20:52:01Z"
+		},
+		{
 			"checksumSHA1": "IV4MN7KGBSocu/5NR3le3sxup4Y=",
 			"path": "golang.org/x/text/runes",
 			"revision": "a263ba8db058568bb9beba166777d9c9dbe75d68",

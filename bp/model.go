@@ -1,7 +1,10 @@
 package bp
 
-type User struct {
-}
+import (
+	"errors"
+
+	"github.com/shopspring/decimal"
+)
 
 type Category struct {
 	ID            ID         `json:"id_category"`
@@ -44,4 +47,61 @@ type Brand struct {
 	// IDChainstore ID     `json:"id_chain_store"`
 }
 
-type Shop struct{}
+type ShopRequestProduct struct {
+	ID    ID  `json:"id_product"`
+	Count int `json:"count"`
+}
+
+type UserPreference struct {
+	IDs []ID `json:"id_chain_stores"`
+	Max int  `json:"max_stores"`
+}
+
+type ShopRequest struct {
+	Products       []ShopRequestProduct `json:"products"`
+	UserPreference UserPreference       `json:"user_preference"`
+}
+
+func (s *ShopRequest) ProductCount(id ID) int {
+	for _, p := range s.Products {
+		if p.ID.String() == id.String() {
+			return p.Count
+		}
+	}
+	return 0
+}
+
+func (s *ShopRequest) Valid() error {
+	if len(s.Products) == 0 {
+		return errors.New("at least one product must be added")
+	}
+	// if len(s.UserPreference.IDs) == 0 {
+	// return errors.New("at least one Chain Store must be set")
+	// }
+	// if s.UserPreference.Max <= 0 || s.UserPreference.Max > len(s.UserPreference.IDs) {
+	// return errors.New("user is monkey")
+	// }
+	return nil
+}
+
+type ShopProduct struct {
+	ID         ID              `json:"id_product"`
+	ChainStore string          `json:"-"`
+	Product    string          `json:"product_name"`
+	Brand      string          `json:"brand_name"`
+	Count      int             `json:"count"`
+	PriceDesc  string          `json:"-"`
+	Price      decimal.Decimal `json:"price"`
+}
+
+type ShopStore struct {
+	ChainStoreName string          `json:"chain_store_name"`
+	Products       []ShopProduct   `json:"products"`
+	PriceTotal     decimal.Decimal `json:"price_total"`
+}
+
+type Shop struct {
+	Error string `json:"error,omitempty"`
+
+	Stores []ShopStore `json:"stores,omitempty"`
+}

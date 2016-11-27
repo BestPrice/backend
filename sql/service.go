@@ -2,6 +2,7 @@ package sql
 
 import (
 	"database/sql"
+	"sort"
 	"strings"
 	"unicode"
 
@@ -10,6 +11,7 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/BestPrice/backend/bp"
+	"github.com/shopspring/decimal"
 )
 
 var _ bp.Service = &Service{}
@@ -217,6 +219,88 @@ func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error)
 	return vals, nil
 }
 
-func (s Service) Shop() (bp.Shop, error) {
-	panic("TODO: implement Shop")
+func (s Service) Shop(req *bp.ShopRequest) (bp.Shop, error) {
+	var IDs []string
+	for _, p := range req.Products {
+		IDs = append(IDs, `"`+p.ID.String()+`"`)
+	}
+
+	query := `
+WITH 
+t0 AS (
+	SELECT * FROM product_prices pp
+	WHERE pp.id_product = ANY('{` + strings.Join(IDs, ",") + `}'::uuid[])
+)
+, t1 AS (
+	SELECT p.id_product, cs.chain_store_name, p.product_name, b.brand_name, p.price_description, t.unit_price
+	--, p.weight, p.volume, p.decimal_possibility
+	FROM t0 t
+	JOIN product p ON p.id_product = t.id_product
+	JOIN chain_store cs ON cs.id_chain_store = t.id_chain_store
+	JOIN brand b ON b.id_brand = p.id_brand
+)
+SELECT * FROM t1
+`
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return bp.Shop{}, err
+	}
+	defer rows.Close()
+
+	var p []bp.ShopProduct
+	for rows.Next() {
+		var r bp.ShopProduct
+		err := rows.Scan(&r.ID, &r.ChainStore, &r.Product, &r.Brand, &r.PriceDesc, &r.Price)
+		if err != nil {
+			return bp.Shop{}, err
+		}
+		p = append(p, r)
+	}
+
+	return calcShop(p, req)
+}
+
+type Stores []bp.ShopStore
+
+func (s *Stores) Len() int      { return len(*s) }
+func (s *Stores) Swap(i, j int) { (*s)[i], (*s)[j] = (*s)[j], (*s)[i] }
+
+type byPrice struct {
+	Stores
+}
+
+func (b *byPrice) Less(i, j int) bool { return b.Stores[i].PriceTotal.Cmp(b.Stores[j].PriceTotal) < 0 }
+
+func calcShop(p []bp.ShopProduct, req *bp.ShopRequest) (bp.Shop, error) {
+
+	stores := make(map[string]bp.ShopStore)
+	for _, pr := range p {
+		s := stores[pr.ChainStore]
+
+		pr.Count = req.ProductCount(pr.ID)
+		pr.Price = pr.Price.Mul(decimal.NewFromFloat(float64(pr.Count)))
+
+		s.ChainStoreName = pr.ChainStore
+		s.PriceTotal = s.PriceTotal.Add(pr.Price)
+
+		s.Products = append(s.Products, pr)
+		stores[pr.ChainStore] = s
+	}
+
+	// remove chainstores which does not have all products
+	var s Stores
+	for k, v := range stores {
+		if len(v.Products) != len(req.Products) {
+			delete(stores, k)
+		} else {
+			s = append(s, v)
+		}
+	}
+
+	if len(s) == 0 {
+		return bp.Shop{Error: "one or more products not available in store"}, nil
+	}
+	sort.Sort(&byPrice{s})
+
+	return bp.Shop{Stores: s}, nil
 }
