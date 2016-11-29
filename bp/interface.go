@@ -8,7 +8,7 @@ type Client interface {
 type Service interface {
 	Categories() ([]Category, error)
 	Chainstores() ([]Chainstore, error)
-	Stores(chainstore, district, region string) ([]Store, error)
+	Stores() ([]Store, error)
 	Products(category *ID, phrase string) ([]Product, error)
 	Shop(r *ShopRequest) (Shop, error)
 }

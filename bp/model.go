@@ -53,8 +53,24 @@ type ShopRequestProduct struct {
 }
 
 type UserPreference struct {
-	IDs []ID `json:"id_chain_stores"`
-	Max int  `json:"max_stores"`
+	IDs       []ID `json:"id_chain_stores"`
+	MaxStores int  `json:"max_stores"`
+}
+
+func (u *UserPreference) Contains(id ID) bool {
+	if len(u.IDs) == 0 {
+		return true
+	}
+	for _, cs := range u.IDs {
+		if cs.String() == id.String() {
+			return true
+		}
+	}
+	return false
+}
+
+func (u *UserPreference) SetPrefered(IDs []ID) {
+	u.IDs = IDs
 }
 
 type ShopRequest struct {
@@ -75,33 +91,38 @@ func (s *ShopRequest) Valid() error {
 	if len(s.Products) == 0 {
 		return errors.New("at least one product must be added")
 	}
-	// if len(s.UserPreference.IDs) == 0 {
-	// return errors.New("at least one Chain Store must be set")
-	// }
-	// if s.UserPreference.Max <= 0 || s.UserPreference.Max > len(s.UserPreference.IDs) {
-	// return errors.New("user is monkey")
-	// }
+	if len(s.UserPreference.IDs) == 0 {
+		return errors.New("at least one Chain Store must be set")
+	}
+	if s.UserPreference.MaxStores <= 0 {
+		return errors.New("minimum one Chain Store must be set")
+	}
+	if s.UserPreference.MaxStores > len(s.UserPreference.IDs) {
+		s.UserPreference.MaxStores = len(s.UserPreference.IDs)
+	}
 	return nil
 }
 
 type ShopProduct struct {
-	ID         ID              `json:"id_product"`
-	ChainStore string          `json:"-"`
-	Product    string          `json:"product_name"`
-	Brand      string          `json:"brand_name"`
-	Count      int             `json:"count"`
-	PriceDesc  string          `json:"-"`
-	Price      decimal.Decimal `json:"price"`
+	ID           ID              `json:"id_product"`
+	IDChainStore ID              `json:"-"`
+	ChainStore   string          `json:"-"`
+	Product      string          `json:"product_name"`
+	Brand        string          `json:"brand_name"`
+	Count        int             `json:"count"`
+	PriceDesc    string          `json:"-"`
+	Price        decimal.Decimal `json:"price"`
 }
 
 type ShopStore struct {
-	ChainStoreName string          `json:"chain_store_name"`
-	Products       []ShopProduct   `json:"products"`
-	PriceTotal     decimal.Decimal `json:"price_total"`
+	ChainStoreName string        `json:"chain_store_name"`
+	Products       []ShopProduct `json:"products"`
+	// PriceTotal     decimal.Decimal `json:"store_price_total"`
 }
 
 type Shop struct {
 	Error string `json:"error,omitempty"`
 
-	Stores []ShopStore `json:"stores,omitempty"`
+	Stores     []ShopStore     `json:"stores,omitempty"`
+	PriceTotal decimal.Decimal `json:"shop_price_total"`
 }

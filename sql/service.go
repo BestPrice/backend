@@ -194,7 +194,7 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 	return vals, nil
 }
 
-func (s Service) Stores(chainstore, district, region string) ([]bp.Store, error) {
+func (s Service) Stores() ([]bp.Store, error) {
 	query := `
 	SELECT s.id_store, cs.chain_store_name, s.store_name, s.city,
 	s.street_and_nr, s.district, s.region, s.coordinates
@@ -232,7 +232,8 @@ t0 AS (
 	WHERE pp.id_product = ANY('{` + strings.Join(IDs, ",") + `}'::uuid[])
 )
 , t1 AS (
-	SELECT p.id_product, cs.chain_store_name, p.product_name, b.brand_name, p.price_description, t.unit_price
+	SELECT p.id_product, cs.chain_store_name, p.product_name, b.brand_name, p.price_description, t.unit_price,
+	cs.id_chain_store
 	--, p.weight, p.volume, p.decimal_possibility
 	FROM t0 t
 	JOIN product p ON p.id_product = t.id_product
@@ -250,7 +251,8 @@ SELECT * FROM t1
 	var p []bp.ShopProduct
 	for rows.Next() {
 		var r bp.ShopProduct
-		err := rows.Scan(&r.ID, &r.ChainStore, &r.Product, &r.Brand, &r.PriceDesc, &r.Price)
+		err := rows.Scan(&r.ID, &r.ChainStore, &r.Product, &r.Brand, &r.PriceDesc, &r.Price,
+			&r.IDChainStore)
 		if err != nil {
 			return bp.Shop{}, err
 		}
@@ -262,45 +264,75 @@ SELECT * FROM t1
 
 type Stores []bp.ShopStore
 
-func (s *Stores) Len() int      { return len(*s) }
-func (s *Stores) Swap(i, j int) { (*s)[i], (*s)[j] = (*s)[j], (*s)[i] }
-
 type byPrice struct {
-	Stores
+	p []bp.ShopProduct
 }
 
-func (b *byPrice) Less(i, j int) bool { return b.Stores[i].PriceTotal.Cmp(b.Stores[j].PriceTotal) < 0 }
+func (b *byPrice) Len() int           { return len(b.p) }
+func (b *byPrice) Less(i, j int) bool { return b.p[i].Price.Cmp(b.p[j].Price) < 0 }
+func (b *byPrice) Swap(i, j int)      { b.p[i], b.p[j] = b.p[j], b.p[i] }
 
 func calcShop(p []bp.ShopProduct, req *bp.ShopRequest) (bp.Shop, error) {
 
-	stores := make(map[string]bp.ShopStore)
-	for _, pr := range p {
-		s := stores[pr.ChainStore]
+	var (
+		stores      = make(map[string]bp.ShopStore)
+		m           = make(map[string]bool)
+		priceTotal  decimal.Decimal
+		preferedSet = false
+	)
 
+	// add price to products
+	for _, pr := range p {
+		m[pr.ID.String()] = false
 		pr.Count = req.ProductCount(pr.ID)
 		pr.Price = pr.Price.Mul(decimal.NewFromFloat(float64(pr.Count)))
+	}
+
+	// sort by price
+	sort.Sort(&byPrice{p})
+	for _, pr := range p {
+		if !req.UserPreference.Contains(pr.IDChainStore) || m[pr.ID.String()] {
+			continue
+		}
+		if len(stores) == req.UserPreference.MaxStores && !preferedSet {
+			var prefered []bp.ID
+			for _, s := range stores {
+				prefered = append(prefered, s.Products[0].IDChainStore)
+			}
+			req.UserPreference.SetPrefered(prefered)
+
+			preferedSet = true
+			continue
+		}
+
+		m[pr.ID.String()] = true
+
+		key := pr.IDChainStore.String()
+		s := stores[key]
 
 		s.ChainStoreName = pr.ChainStore
-		s.PriceTotal = s.PriceTotal.Add(pr.Price)
+		priceTotal = priceTotal.Add(pr.Price)
 
 		s.Products = append(s.Products, pr)
-		stores[pr.ChainStore] = s
+		stores[key] = s
+	}
+
+	if len(stores) == 0 {
+		return bp.Shop{Error: "specified products not found in specified chainstores"}, nil
 	}
 
 	// remove chainstores which does not have all products
 	var s Stores
-	for k, v := range stores {
-		if len(v.Products) != len(req.Products) {
-			delete(stores, k)
-		} else {
-			s = append(s, v)
-		}
+	for _, v := range stores {
+		s = append(s, v)
 	}
 
 	if len(s) == 0 {
 		return bp.Shop{Error: "one or more products not available in store"}, nil
 	}
-	sort.Sort(&byPrice{s})
 
-	return bp.Shop{Stores: s}, nil
+	return bp.Shop{
+		Stores:     s,
+		PriceTotal: priceTotal,
+	}, nil
 }

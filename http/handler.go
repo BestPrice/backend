@@ -111,7 +111,7 @@ func (h Handler) products(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (h Handler) stores(w http.ResponseWriter, r *http.Request) error {
-	v, err := h.Service.Stores("", "", "")
+	v, err := h.Service.Stores()
 	if err != nil {
 		return err
 	}
@@ -169,8 +169,8 @@ func (h Handler) api(w http.ResponseWriter, r *http.Request) error {
 		},
 
 		UserPreference: bp.UserPreference{
-			IDs: []bp.ID{bp.RandID(), bp.RandID()},
-			Max: 3,
+			IDs:       []bp.ID{bp.RandID(), bp.RandID()},
+			MaxStores: 3,
 		},
 	})
 
