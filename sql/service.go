@@ -282,10 +282,10 @@ func calcShop(p []bp.ShopProduct, req *bp.ShopRequest) (bp.Shop, error) {
 	)
 
 	// add price to products
-	for _, pr := range p {
-		m[pr.ID.String()] = false
-		pr.Count = req.ProductCount(pr.ID)
-		pr.Price = pr.Price.Mul(decimal.NewFromFloat(float64(pr.Count)))
+	for i := range p {
+		m[p[i].ID.String()] = false
+		p[i].Count = req.ProductCount(p[i].ID)
+		p[i].Price = p[i].Price.Mul(decimal.NewFromFloat(float64(p[i].Count)))
 	}
 
 	// sort by price
