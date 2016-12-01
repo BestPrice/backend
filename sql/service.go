@@ -197,7 +197,7 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 func (s Service) Stores() ([]bp.Store, error) {
 	query := `
 	SELECT s.id_store, cs.chain_store_name, s.store_name, s.city,
-	s.street_and_nr, s.district, s.region, s.coordinates
+	s.street_and_nr, s.district, s.region, s.latitude, s.longitude
 	FROM store s
 	JOIN chain_store cs ON s.id_chain_store = cs.id_chain_store
 	`
@@ -210,7 +210,7 @@ func (s Service) Stores() ([]bp.Store, error) {
 	vals := make([]bp.Store, 0, 32)
 	for rows.Next() {
 		var s bp.Store
-		if err := rows.Scan(&s.ID, &s.CSName, &s.Name, &s.City, &s.Street, &s.District, &s.Region, &s.Coordinates); err != nil {
+		if err := rows.Scan(&s.ID, &s.CSName, &s.Name, &s.City, &s.Street, &s.District, &s.Region, &s.Lat, &s.Lng); err != nil {
 			return nil, err
 		}
 		vals = append(vals, s)
