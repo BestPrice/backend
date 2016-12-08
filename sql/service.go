@@ -140,7 +140,7 @@ func (s Service) Products(category *bp.ID, phrase string) ([]bp.Product, error) 
 			SELECT p.id_product, p.id_brand, p.price_description, n.chain || ' ' || p.product_name
 			FROM product p, nodes n
 			WHERE p.id_parent_product = n.uuid
-		), join_brands AS (
+		)	, join_brands AS (
 			SELECT n.uuid, n.pd, n.chain || ' ' || b.brand_name AS chain
 			FROM nodes n
 			JOIN brand b ON b.id_brand = n.id_brand
@@ -219,44 +219,66 @@ func (s Service) Stores() ([]bp.Store, error) {
 	return vals, nil
 }
 
-func (s Service) Shop(req *bp.ShopRequest) (bp.Shop, error) {
-	var IDs []string
-	for _, p := range req.Products {
-		IDs = append(IDs, `"`+p.ID.String()+`"`)
-	}
-
+func (s *Service) shopQuery(ID bp.ID) string {
+	id := ID.String()
 	query := `
-WITH 
+WITH RECURSIVE
 t0 AS (
-	SELECT * FROM product_prices pp
-	WHERE pp.id_product = ANY('{` + strings.Join(IDs, ",") + `}'::uuid[])
+	SELECT p.id_product
+	FROM product p
+	WHERE p.id_parent_product = '` + id + `'
+	UNION ALL
+	SELECT p.id_product
+	FROM product p, t0 n
+	WHERE p.id_parent_product = n.id_product
 )
 , t1 AS (
-	SELECT p.id_product, cs.chain_store_name, p.product_name, b.brand_name, p.price_description, t.unit_price,
+	SELECT t.id_product FROM t0 t
+	UNION
+	SELECT '` + id + `'
+)
+, t2 AS (
+	SELECT pp.*
+	FROM t1 t, product_prices pp
+	WHERE t.id_product = pp.id_product
+)
+, t3 AS (
+	SELECT '` + id + `' as id_product, cs.chain_store_name, p.product_name, b.brand_name, p.price_description, t.unit_price,
 	cs.id_chain_store
 	--, p.weight, p.volume, p.decimal_possibility
-	FROM t0 t
+	FROM t2 t
 	JOIN product p ON p.id_product = t.id_product
 	JOIN chain_store cs ON cs.id_chain_store = t.id_chain_store
 	JOIN brand b ON b.id_brand = p.id_brand
 )
-SELECT * FROM t1
+SELECT * FROM t3
 `
-	rows, err := s.db.Query(query)
-	if err != nil {
-		return bp.Shop{}, err
-	}
-	defer rows.Close()
+	return query
+}
 
-	var p []bp.ShopProduct
-	for rows.Next() {
-		var r bp.ShopProduct
-		err := rows.Scan(&r.ID, &r.ChainStore, &r.Product, &r.Brand, &r.PriceDesc, &r.Price,
-			&r.IDChainStore)
+func (s Service) Shop(req *bp.ShopRequest) (bp.Shop, error) {
+	var (
+		IDs []string
+		p   []bp.ShopProduct
+	)
+	for _, product := range req.Products {
+		IDs = append(IDs, product.ID.String())
+
+		rows, err := s.db.Query(s.shopQuery(product.ID))
 		if err != nil {
 			return bp.Shop{}, err
 		}
-		p = append(p, r)
+		defer rows.Close()
+
+		for rows.Next() {
+			var r bp.ShopProduct
+			err := rows.Scan(&r.ID, &r.ChainStore, &r.Product,
+				&r.Brand, &r.PriceDesc, &r.Price, &r.IDChainStore)
+			if err != nil {
+				return bp.Shop{}, err
+			}
+			p = append(p, r)
+		}
 	}
 
 	return calcShop(p, req)
@@ -264,75 +286,103 @@ SELECT * FROM t1
 
 type Stores []bp.ShopStore
 
-type byPrice struct {
+type shopProducts struct {
 	p []bp.ShopProduct
 }
 
-func (b *byPrice) Len() int           { return len(b.p) }
-func (b *byPrice) Less(i, j int) bool { return b.p[i].Price.Cmp(b.p[j].Price) < 0 }
-func (b *byPrice) Swap(i, j int)      { b.p[i], b.p[j] = b.p[j], b.p[i] }
+func (b *shopProducts) Len() int      { return len(b.p) }
+func (b *shopProducts) Swap(i, j int) { b.p[i], b.p[j] = b.p[j], b.p[i] }
+
+type byPrice struct {
+	shopProducts
+}
+
+func (b *byPrice) Less(i, j int) bool {
+	return b.p[i].Price.Cmp(b.p[j].Price) < 0
+}
 
 func calcShop(p []bp.ShopProduct, req *bp.ShopRequest) (bp.Shop, error) {
 
 	var (
-		stores      = make(map[string]bp.ShopStore)
-		m           = make(map[string]bool)
-		priceTotal  decimal.Decimal
-		preferedSet = false
+		stores     = make(map[string]*bp.ShopStore)
+		m          = make(map[string]bool)
+		priceTotal decimal.Decimal
 	)
 
 	// add price to products
 	for i := range p {
-		m[p[i].ID.String()] = false
+		pid := p[i].ID.String()
+		m[pid] = false
 		p[i].Count = req.ProductCount(p[i].ID)
 		p[i].Price = p[i].Price.Mul(decimal.NewFromFloat(float64(p[i].Count)))
 	}
 
-	// sort by price
-	sort.Sort(&byPrice{p})
-	for _, pr := range p {
-		if !req.UserPreference.Contains(pr.IDChainStore) || m[pr.ID.String()] {
-			continue
-		}
-		if len(stores) == req.UserPreference.MaxStores && !preferedSet {
-			var prefered []bp.ID
-			for _, s := range stores {
-				prefered = append(prefered, s.Products[0].IDChainStore)
-			}
-			req.UserPreference.SetPrefered(prefered)
-
-			preferedSet = true
-			continue
-		}
-
-		m[pr.ID.String()] = true
-
-		key := pr.IDChainStore.String()
-		s := stores[key]
-
-		s.ChainStoreName = pr.ChainStore
-		priceTotal = priceTotal.Add(pr.Price)
-
-		s.Products = append(s.Products, pr)
-		stores[key] = s
-	}
-
-	if len(stores) == 0 {
-		return bp.Shop{Error: "specified products not found in specified chainstores"}, nil
-	}
+	sort.Sort(&byPrice{shopProducts{p}})
+	findProducts(p, req, stores, make(map[string]bool))
 
 	// remove chainstores which does not have all products
-	var s Stores
-	for _, v := range stores {
-		s = append(s, v)
+	var (
+		Stores        Stores
+		productsTotal int
+	)
+	for _, store := range stores {
+		for _, product := range store.Products {
+			priceTotal = priceTotal.Add(product.Price)
+		}
+		productsTotal += len(store.Products)
+		Stores = append(Stores, *store)
 	}
 
-	if len(s) == 0 {
+	if productsTotal == len(req.UserPreference.IDs) {
 		return bp.Shop{Error: "one or more products not available in store"}, nil
 	}
 
 	return bp.Shop{
-		Stores:     s,
+		Stores:     Stores,
 		PriceTotal: priceTotal,
 	}, nil
+}
+
+func findProducts(products []bp.ShopProduct, req *bp.ShopRequest, stores map[string]*bp.ShopStore, pt map[string]bool) {
+
+	for i, p := range products {
+		pid := p.ID.String()
+		if _, ok := pt[pid]; ok {
+			continue
+		}
+		pt[pid] = true
+
+		if len(pt) > len(req.Products) {
+			delete(pt, pid)
+			return
+		}
+
+		pidcs := p.IDChainStore.String()
+		store := stores[pidcs]
+		if store == nil {
+			store = &bp.ShopStore{ChainStoreName: p.ChainStore}
+			stores[pidcs] = store
+		}
+
+		if len(stores) > req.UserPreference.MaxStores {
+			delete(stores, pidcs)
+			delete(pt, pid)
+			continue
+		}
+
+		store.Products = append(store.Products, p)
+
+		findProducts(products[i+1:], req, stores, pt)
+
+		if len(pt) == len(req.Products) {
+			return
+		}
+
+		store.Products = store.Products[:len(store.Products)-1]
+		if len(store.Products) == 0 {
+			delete(stores, pidcs)
+		}
+
+		delete(pt, pid)
+	}
 }
