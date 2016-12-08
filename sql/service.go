@@ -2,6 +2,7 @@ package sql
 
 import (
 	"database/sql"
+	// "log"
 	"sort"
 	"strings"
 	"unicode"
@@ -320,12 +321,15 @@ func calcShop(p []bp.ShopProduct, req *bp.ShopRequest) (bp.Shop, error) {
 	sort.Sort(&byPrice{shopProducts{p}})
 	findProducts(p, req, stores, make(map[string]bool))
 
-	// remove chainstores which does not have all products
 	var (
 		Stores        Stores
 		productsTotal int
 	)
 	for _, store := range stores {
+		// remove not prefered chainstores
+		if !req.UserPreference.Contains(store.ID) {
+			continue
+		}
 		for _, product := range store.Products {
 			priceTotal = priceTotal.Add(product.Price)
 		}
@@ -333,7 +337,7 @@ func calcShop(p []bp.ShopProduct, req *bp.ShopRequest) (bp.Shop, error) {
 		Stores = append(Stores, *store)
 	}
 
-	if productsTotal == len(req.UserPreference.IDs) {
+	if productsTotal != len(req.Products) {
 		return bp.Shop{Error: "one or more products not available in store"}, nil
 	}
 
@@ -360,7 +364,10 @@ func findProducts(products []bp.ShopProduct, req *bp.ShopRequest, stores map[str
 		pidcs := p.IDChainStore.String()
 		store := stores[pidcs]
 		if store == nil {
-			store = &bp.ShopStore{ChainStoreName: p.ChainStore}
+			store = &bp.ShopStore{
+				ID:             p.IDChainStore,
+				ChainStoreName: p.ChainStore,
+			}
 			stores[pidcs] = store
 		}
 

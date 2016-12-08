@@ -63,7 +63,7 @@ func (u *UserPreference) Contains(id ID) bool {
 		return true
 	}
 	for _, cs := range u.IDs {
-		if cs.String() == id.String() {
+		if *cs.UUID == *id.UUID {
 			return true
 		}
 	}
@@ -116,6 +116,7 @@ type ShopProduct struct {
 }
 
 type ShopStore struct {
+	ID             ID            `json:"-"`
 	ChainStoreName string        `json:"chain_store_name"`
 	Products       []ShopProduct `json:"products"`
 	// PriceTotal     decimal.Decimal `json:"store_price_total"`
@@ -125,5 +126,5 @@ type Shop struct {
 	Error string `json:"error,omitempty"`
 
 	Stores     []ShopStore     `json:"stores,omitempty"`
-	PriceTotal decimal.Decimal `json:"shop_price_total"`
+	PriceTotal decimal.Decimal `json:"shop_price_total,omitempty"`
 }
